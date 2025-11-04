@@ -86,8 +86,13 @@ def run_gui(shelf_count):
     box_app = WindowProgressTable(root, shelf_count)
     root.mainloop()
 
+sequence = {}
 
-
+class sequence_publisher:
+    def __init__(self, name, count, qr):
+        self.name = name
+        self.count = count
+        self.qr = qr
 
 class shelf:
     
@@ -251,6 +256,7 @@ class WarehouseExplore(Node):
         self.halt_counter = 0
         self.last_moved_time = self.get_clock().now().nanoseconds
         self.robot_initial_angle = None
+        self.obj_iter = 1
 
 
     def pose_callback(self, message):
@@ -611,7 +617,7 @@ class WarehouseExplore(Node):
                 self.logger.info(f"extream conds met for qr {cx,cy,angle,dist,n}")  
                 return 
             return self.qr_coords(th,cx, cy, angle, dist, n-0.05)
-    def get_shelves(self,boundary_img, img,th, height, width):
+    def get_shelves(self, img,th, height, width):
         global shelves
         shelves=[]
         self.height=height
@@ -680,8 +686,8 @@ class WarehouseExplore(Node):
                 if M["m00"] != 0:
                     cx = int(M["m10"] / M["m00"])
                     cy = int(M["m01"] / M["m00"])
-                    n=1
-                    m=1.5
+                    n=0.7
+                    m=1.0
                     
 
                     o1,o2= self.shelf_coords(th,cx, cy, angle, dist, m)
@@ -713,130 +719,13 @@ class WarehouseExplore(Node):
                     self.logger.info(f"complete shelf added {len(shelves)}")
                     continue
             self.logger.info("perfect shape not found")
-            
-    
-            _, thresh = cv2.threshold(boundary_img.astype(np.uint8), 130, 255, cv2.THRESH_BINARY)
-        
-            contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    
-            # Create output image for visualization
-            # output = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
-            #img
-            # cv2.circle(output,(99, 11),3,(255,0,0),-1)
-
-            detected_shapes = []
-                
-            # M = cv2.moments(cnt)
-            # if M["m00"] != 0:
-            #     cx = int(M["m10"] / M["m00"])
-            #     cy = int(M["m01"] / M["m00"])
-                
-            
-            # Classify shape based on vertices
-            
-            if vertices == 4:
-                approx=approx.reshape((4,2))
-                
-                possible =[]
-                ideal=None
-                ideal_angle=1000
-                for i in range (4):
-                    score=math.degrees(math.acos(abs((np.dot((approx[i-1]- approx[i]),( approx[(i+1)%4]- approx[i])))/(np.linalg.norm((approx[i-1]- approx[i]))*np.linalg.norm((approx[(i+1)%4]- approx[i]))))))
-                    # print("  angle at ", approx[i], " is ", score)
-                    # print(approx[i])
-                    if abs(score-90)<45:
-                        print("  possible at", i, " with score ", score)
-                        possible.append(i)
-                        
-                        if score-90<ideal_angle:
-                            ideal_angle=score-90
-                            ideal=i
-
-                # print("yay", possible)
-                if  (len(possible)==2 and abs(possible[0]-possible[1]  ) ==2):
-                    
-                    i=ideal
-                    
-                    
-                    
-                    aspect_ratio = math.dist(approx[i], approx[(i+1)%4]) / math.dist(approx[i], approx[i-1])
-                
-                else :
-                    continue
-                print("aspect_ratio",aspect_ratio)
-                r=0.6
-                print(r >= aspect_ratio or aspect_ratio >=1/r)
-                # print(approx)
-                
-                # print("name", (math.dist(approx[0], approx[1]), math.dist(approx[1], approx[2])))#and(math.dist(approx[1], approx[3])<200 and math.dist(approx[2], approx[0]) <200) and (math.dist(approx[1], approx[3])>5 or math.dist(approx[2], approx[0]) > 5))
-                # print(math.dist(approx[1], approx[2]), math.dist(approx[2], approx[0]))
-                if (r >= aspect_ratio or aspect_ratio >=1/r)  and(math.dist(approx[1], approx[3])<200 and math.dist(approx[2], approx[0]) <200) :
-                    shape_name = "RECTANGLE"
-                    color = (255, 0, 0)  
-                    if math.dist(approx[1], approx[3]) < math.dist(approx[2], approx[0]):
-                        center = (approx[0][0] + approx[2][0]) // 2, (approx[0][1] + approx[2][1]) // 2
-                        
-                    else:
-                        center = (approx[1][0] + approx[3][0]) // 2, (approx[1][1] + approx[3][1]) // 2
-
-                    m,n=8,4
-                    if math.dist(approx[0], approx[1]) < math.dist(approx[1], approx[2]):
-                        long_side_center=(approx[2][0] + approx[1][0]) // 2, (approx[2][1] + approx[1][1]) // 2
-                        short_side_center=(approx[0][0] + approx[1][0]) // 2, (approx[0][1] + approx[1][1]) // 2
-                        image_point=(long_side_center[0]-center[0])*m+center[0],(long_side_center[1]-center[1])*n+center[1]
-                        qr_code_point=(short_side_center[0]-center[0])*n+center[0],(short_side_center[1]-center[1])*n+center[1]
-                    else:
-                        long_side_center=(approx[1][0] + approx[0][0]) // 2, (approx[1][1] + approx[0][1]) // 2
-                        short_side_center=(approx[1][0] + approx[2][0]) // 2, (approx[1][1] + approx[2][1]) // 2
-                        image_point=(long_side_center[0]-center[0])*m+center[0],(long_side_center[1]-center[1])*m+center[1]
-                        qr_code_point=(short_side_center[0]-center[0])*n+center[0],(short_side_center[1]-center[1])*n+center[1]
-
-                else:
-                    continue
 
 
-                
-                
-            
-            else :
-                continue
-            
-            
-            # Calculate centroid
-            M = cv2.moments(cnt)
-            if M["m00"] != 0:
-                cx = int(M["m10"] / M["m00"])
-                cy = int(M["m01"] / M["m00"])
-                
-                dont_add=False
-                # Draw center point
-                # cv2.circle(output, center, 5, (255, 0, 255), -1)
-                for i in detected_shapes:
-                    if math.dist(i['center'], center) <10:
-                        dont_add=True
-                        break
-                    
-                if not dont_add:
-                    shelves.append(shelf(center, (qr_code_point[0],height-qr_code_point[1]), (image_point[0],height-image_point[1]), (angle*np.pi/180),(ortho*np.pi/180)))
-                    self.logger.info(f"complete shelf added {len(shelves)}")
-                    
-                    # Store shape info
-
-                    detected_shapes.append({
-                        'shape': shape_name,
-                        'vertices': vertices,
-                        'area': area,
-                        'center': (cx, cy),
-                        'contour': approx
-                    })
-
-
-
-    def find_shelves(self, boundary_img,th, height, width, map_info):
+    def find_shelves(self, img,th, height, width, map_info):
         self.full_map_explored_count += 1
         self.logger.info(f"finf_shelves; count = {self.full_map_explored_count}")
         # if self.flag == 0:
-        self.get_shelves(boundary_img,th, height, width)
+        self.get_shelves(img,th, height, width)
         if self.coms==None:
             
             self.coms = "done"
@@ -925,12 +814,6 @@ class WarehouseExplore(Node):
 
         img = np.array(self.global_map_curr.data).reshape((height, width))
         img = img.astype(np.int16)
-        boundary_img=img.copy()
-        boundary_img[img==100]=255
-        # print(np.unique(img))
-        boundary_img[img == -1] = 127
-        boundary_img [img<=100]=0
-
         img[(img != 0)&(img != -1)] = 255
         img[img == -1] = 127
         
@@ -939,7 +822,6 @@ class WarehouseExplore(Node):
         # self.logger.info(f"unique element{np.unique(th)}")
         th=cv2.flip(th,0)
         img=cv2.flip(img,0)
-        boundary_img=cv2.flip(boundary_img,0)
         # print(f"--- Overwriting '{self.filename}'... ---")
         # try:
             # Open the file in 'w' (write) mode.
@@ -956,7 +838,7 @@ class WarehouseExplore(Node):
        
         # ct, _ = cv2.findContours(th, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
-        shelf_index = self.find_shelves(boundary_img,img,th, height, width, map_info)
+        shelf_index = self.find_shelves(img,th, height, width, map_info)
         self.logger.info(f"shelf_index found: {shelf_index}")
 
         if len(shelf_index) > 0:
@@ -1118,57 +1000,92 @@ class WarehouseExplore(Node):
         Returns:
             None
         """
+
+        if self.qr_done == True or self.goal_completed == False or self.explore_toggle == True:
+            return
+
         count = 0
         for object in message.object_count:
             count += object
 
-        distance = euclidean(self.buggy_center, self.prev_sit)
-
-        # Check if moved significantly to reset counter
-        if distance > MOVE_RESET_DISTANCE:
-            self.halt_counter = 0
-            self.last_moved_time = self.get_clock().now().nanoseconds
-
-        # Increment counter if very small movement
-        if distance < STOP_DISTANCE_THRESHOLD:
-            self.halt_counter += 1
+        if int(self.qr_code_str.split("_")) != self.obj_iter:
+            sequence[int(self.qr_code_str.split("_")[0])]= sequence_publisher(count, message.object_name, message.qr_decoded)
+            
         else:
-            self.halt_counter = 0
+            shelf_data_message = WarehouseShelf()
 
-        # Robot must be still for required frames AND for at least 1 second
-        elapsed_sec = (self.get_clock().now().nanoseconds - self.last_moved_time) / 1e9
-        self.halt = (self.halt_counter >= STOP_FRAMES_REQUIRED and elapsed_sec > 0.25)
+            shelf_data_message.object_name = message.object_name
+            shelf_data_message.object_count = message.object_count
+            shelf_data_message.qr_decoded = self.qr_code_str
 
-        self.prev_sit = self.buggy_center
 
-        # self.logger.info(
-        #     f"halt: {self.halt}"
-        # )
+            self.publisher_shelf_data.publish(shelf_data_message)
+            self.obj_iter = int(self.qr_code_str ) + 1
 
-        if self.qr_code_str.split("_")[0] != "Empty":
-            if 7 > count > 3 and int(self.qr_code_str.split("_")[0]) == (self.shelf_table_no + 1) and self.halt:
-                self.miss_check = True
-                # for i in range(10):
-                self.logger.info(f"hi...")
-                # self.logger.info(f"Detected {count} objects on shelf.")
-
-                self.shelf_objects_curr = message
-
+            while sequence.get(self.obj_iter) != None:
 
                 shelf_data_message = WarehouseShelf()
 
-                shelf_data_message.object_name = message.object_name
-                shelf_data_message.object_count = message.object_count
-                shelf_data_message.qr_decoded = self.qr_code_str
+                shelf_data_message.object_name = sequence_publisher[self.obj_iter].name
+                shelf_data_message.object_count = sequence_publisher[self.obj_iter].count
+                shelf_data_message.qr_decoded = sequence_publisher[self.obj_iter].qr
 
 
                 self.publisher_shelf_data.publish(shelf_data_message)
-                # self.obj_counter += 1
-                if count > 5:
-                    self.shelf_table_no = int(self.qr_code_str.split("_")[0])
-            if not self.halt and self.miss_check:
-                self.shelf_table_no = int(self.qr_code_str.split("_")[0])
-                self.miss_check = False
+                self.obj_iter = int(self.qr_code_str.split("_")[0]) + 1
+
+
+        # count = 0
+        # for object in message.object_count:
+        #     count += object
+
+        # distance = euclidean(self.buggy_center, self.prev_sit)
+
+        # # Check if moved significantly to reset counter
+        # if distance > MOVE_RESET_DISTANCE:
+        #     self.halt_counter = 0
+        #     self.last_moved_time = self.get_clock().now().nanoseconds
+
+        # # Increment counter if very small movement
+        # if distance < STOP_DISTANCE_THRESHOLD:
+        #     self.halt_counter += 1
+        # else:
+        #     self.halt_counter = 0
+
+        # # Robot must be still for required frames AND for at least 1 second
+        # elapsed_sec = (self.get_clock().now().nanoseconds - self.last_moved_time) / 1e9
+        # self.halt = (self.halt_counter >= STOP_FRAMES_REQUIRED and elapsed_sec > 0.25)
+
+        # self.prev_sit = self.buggy_center
+
+        # # self.logger.info(
+        # #     f"halt: {self.halt}"
+        # # )
+
+        # if self.qr_code_str.split("_")[0] != "Empty":
+        #     if 7 > count > 3 and int(self.qr_code_str.split("_")[0]) == (self.shelf_table_no + 1) and self.halt:
+        #         self.miss_check = True
+        #         # for i in range(10):
+        #         self.logger.info(f"hi...")
+        #         # self.logger.info(f"Detected {count} objects on shelf.")
+
+        #         self.shelf_objects_curr = message
+
+
+        #         shelf_data_message = WarehouseShelf()
+
+        #         shelf_data_message.object_name = message.object_name
+        #         shelf_data_message.object_count = message.object_count
+        #         shelf_data_message.qr_decoded = self.qr_code_str
+
+
+        #         self.publisher_shelf_data.publish(shelf_data_message)
+        #         # self.obj_counter += 1
+        #         if count > 5:
+        #             self.shelf_table_no = int(self.qr_code_str.split("_")[0])
+        #     if not self.halt and self.miss_check:
+        #         self.shelf_table_no = int(self.qr_code_str.split("_")[0])
+        #         self.miss_check = False
 
 
             # if 7 > count > 5 and int(self.qr_code_str.split("_")[0]) == self.shelf_table_no + 1 and self.goal_completed:
